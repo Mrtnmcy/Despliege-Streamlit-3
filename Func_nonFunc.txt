@@ -1,0 +1,21 @@
+- Functional Requirements:
+	- Dashboard
+	- Map to visualize results
+	- Graphs/plots for cumulative metrics
+	- Plots should be modifiable for specific date/comune information
+	- SMART KPI (More thatn those in the document)
+	- Downloadable resources (make plots downloadable)
+	- Zone selection (North/South, East/West, Prioritize/Don't, Center/Outer)
+	- Login Screen (possibly)
+
+- Non-Functional Requirements:
+	- A database to save the users uploaded dataset (persistent data saved)
+		- Alternatively, a cache to cache the database after an update
+	- A database to save the users accounts
+	- A connection between the database and the app
+	- Comply with data security laws
+	- User data security: User accounts shouldn't depend on 
+	- Should be portable (must be a web app)
+	- REP Model weights/parameters should be cached for speed
+	- Standardized code format for updates
+
