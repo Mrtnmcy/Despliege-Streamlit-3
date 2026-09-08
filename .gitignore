@@ -1,0 +1,5 @@
+*.ipynb
+.streamlit/secrets.toml
+*.venv
+*.txt
+documentos/
