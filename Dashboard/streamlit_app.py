@@ -30,8 +30,16 @@ def logout():
 
 
 login_page = st.Page(login, title = "Log in", icon=":material/login:")
-login_page = st.Page(logout, title = "Log out", icon=":material/logout:")
+logout_page = st.Page(logout, title = "Log out", icon=":material/logout:")
 map_page = st.Page("./pages/mapa.py", title = "Mapa de\npriorización", icon=":material/map:")
-
-if st.session_state.authenticated = False:
-    pg = st.navigation()
+series_page = st.Page("./pages/plots.py", title = "Gráfico de Performance")
+if st.session_state.authenticated == True:
+    pg = st.navigation(
+            {
+                "Sesión":[logout_page],
+                "Reportes":[map_page, series_page]
+                }
+            )
+else:
+    pg = st.navigation([login_page])
+pg.run()
