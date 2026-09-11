@@ -34,11 +34,20 @@ EXCOLS = ["año", "mes", "nombre_establecimiento", "razon_social", "region",
                             "tratamiento_n2_name", "tratamiento_n3_name",
                             "trazabilidad__nombre_establecimiento","trazabilidad__razon_social", "trazabilidad__comuna",
                             "tipo_dato"]
-TRATAMIENTOCOLOR = [
-        [200, 30, 0, 160], #Rojo -> eliminación
-        [0, 120, 200, 160], #Azul -> pretrataminento
-        [40, 180, 40, 160], #Verde -> valorización
-        ]
+TRATAMIENTOCOLOR = {
+        "Eliminación":[200, 30, 0, 160], #Rojo -> Eliminación
+        "Recepción y Almacenamiento":[0, 120, 200, 160], #Azul -> Recepcion
+        "Todo tipo de Tratamiento": [210, 109, 32, 160], #Naranjo -> Todo tipo de tratamiento
+        "Valorización":[40, 180, 40, 160], #Verde -> Valorización
+        }
+
+RANGOCOLOR = [
+        [255, 50, 50, 200],   # Rojo
+        [255, 150, 50, 200],  # Naranja
+        [255, 255, 50, 200],  # Amarillo
+        [150, 255, 50, 200],  # Verde claro
+        [50, 200, 50, 200]   # Verde
+    ]
 
 # --------- Constantes --------- 
 
@@ -51,11 +60,13 @@ residuos_de_captura = pd.read_csv(SOLIDOS2024, sep = ";")
 
 
 # --------- Session state ---------  
+
 st.session_state.dataframe = residuos_de_captura
-st.session_state.tratamientos_unicos = st.session_state.dataframe["tratamiento_n1_name"].unique()
-st.session_state.tratamiento_color_mapa = {tratamiento : TRATAMIENTOCOLOR[i % len(TRATAMIENTOCOLOR)]
-                                           for i, tratamiento in enumerate(st.session_state.tratamientos_unicos)}
-st.session_state.dataframe["color_capa"] = st.session_state.dataframe["tratamiento_n1_name"].map(st.session_state.tratamiento_color_mapa)
+#st.session_state.TRATAMIENTOCOLOR = st.session_state.dataframe["tratamiento_n1_name"].unique()
+#st.session_state.tratamiento_color_mapa = {tratamiento : TRATAMIENTOCOLOR[i % len(TRATAMIENTOCOLOR)]
+#                                           for i, tratamiento in enumerate(st.session_state.tratamientos_unicos)}
+# st.session_state.dataframe["color_capa"] = st.session_state.dataframe["tratamiento_n1_name"].map(st.session_state.tratamiento_color_mapa)
+
 dataframe_filtrado = st.session_state.dataframe[(st.session_state.dataframe["mes"] == 12)]
 
 maximum = dataframe_filtrado["cantidad_toneladas"].max()
@@ -83,15 +94,22 @@ def color_rows_by_score(row):
 with st.sidebar:
     st.header("Filtros de Mapa")
     desecho_seleccionado = st.selectbox("Tipo de desecho", 
-                                     ["Todo tipo de desecho"] + st.session_state.tratamientos_unicos.tolist())
+                                     list(TRATAMIENTOCOLOR))
     region_seleccionada = st.selectbox("Región", 
                                        ["Todas las regiones"] + REGIONES)
 
+if desecho_seleccionado != "Todo tipo de Tratamiento":
+        dataframe_filtrado = dataframe_filtrado[st.session_state.dataframe["tratamiento_n1_name"] == desecho_seleccionado]
+else:
+    dataframe_filtrado = dataframe_filtrado.groupby(["region", "comuna", "mes"]).agg({"tratamiento_n1_name":(lambda x: "Todo tipo de Tratamiento"),
+                                                                                      "cantidad_toneladas":"mean",
+                                                                                      "longitud":"first",
+                                                                                      "latitud":"first"}).reset_index()
+
 if region_seleccionada != "Todas las regiones":
         dataframe_filtrado = dataframe_filtrado[dataframe_filtrado["region"] == region_seleccionada]
-if desecho_seleccionado != "Todo tipo de desecho":
-        dataframe_filtrado = dataframe_filtrado[st.session_state.dataframe["tratamiento_n1_name"] == desecho_seleccionado]
 
+# dataframe_filtrado["color_capa"] = [TRATAMIENTOCOLOR[desecho_seleccionado]] * len(dataframe_filtrado)
 
 # --------- Filtros ---------  
 
@@ -105,19 +123,21 @@ view_state = pdk.ViewState(
                 pitch=30)
 
 layer = pdk.Layer(
-        "ScatterplotLayer",
-        data = dataframe_filtrado,
+        "ScreenGridLayer",
+        dataframe_filtrado,
         get_position = ["longitud","latitud"],
-        get_radius = "cantidad_toneladas*0.1",
-        get_fill_color = "color_capa",
+        get_weight = "cantidad_toneladas",
+        color_range = RANGOCOLOR,
+        cell_size_pixels = 20,
         pickable = True,
         auto_highlight = True
         )
+
 r = pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
         tooltip={
-            "text":"Comuna: {comuna}\nTratamiento: {tratamiento_n1_name}\nCantidad(Tm): {cantidad_toneladas}"},
+            'html':'Comuna: {comuna}<br>Tratamiento: {tratamiento_n1_name}<br>Cantidad(Tm): {cantidad_toneladas}'},
         )
 
 maincol1, maincol2 = st.columns([3,1])
@@ -142,8 +162,4 @@ with maincol2:
                      }
                  )
 # --------- Mapa ---------  
-
-#print(df.info())
-#print(df.describe())
-
 

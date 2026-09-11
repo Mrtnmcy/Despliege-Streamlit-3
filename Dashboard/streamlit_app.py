@@ -36,8 +36,8 @@ series_page = st.Page("./pages/plots.py", title = "Gráfico de Performance")
 if st.session_state.authenticated == True:
     pg = st.navigation(
             {
+                "Reportes":[map_page, series_page],
                 "Sesión":[logout_page],
-                "Reportes":[map_page, series_page]
                 }
             )
 else:

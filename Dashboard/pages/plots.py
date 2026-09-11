@@ -1,15 +1,14 @@
 import pandas as pd
 import streamlit as st
-import pydeck as pdk
-
+import plotly.express as px
 # Pagina Mapa del Dashboard
 
 st.set_page_config(page_title="Demo de mapa", page_icon=":material/map:")
-st.markdown("# Mapa de servicio")
+st.markdown("# *Permoformance*")
 st.sidebar.header("Demo de mapa")
-st.write("""Este mapa representa las comunas con servicio de reciclaje ReSimple.
-         El tamaño representa las toneladas de basura recolectadas por ReSimple mientras que el color representa el tipo de
-         tratamiento de basura.""")
+st.markdown("""Los dos gráficos de abajo representan el comportamiento a lo largo del tiempo de/los KPI seleccionado/s, 
+y una comparación entre el desempeño de cada comuna en un KPI.
+         """)
 # --------- Constantes --------- 
 REGIONES = ['Antofagasta', 'Coquimbo', 'Valparaíso',
             "Libertador Gral. Bernardo O'Higgins", 'Maule', 'Biobío',
@@ -53,13 +52,9 @@ residuos_de_captura = pd.read_csv(SOLIDOS2024, sep = ";")
 # --------- Session state ---------  
 st.session_state.dataframe = residuos_de_captura
 st.session_state.tratamientos_unicos = st.session_state.dataframe["tratamiento_n1_name"].unique()
-st.session_state.tratamiento_color_mapa = {tratamiento : TRATAMIENTOCOLOR[i % len(TRATAMIENTOCOLOR)]
-                                           for i, tratamiento in enumerate(st.session_state.tratamientos_unicos)}
-st.session_state.dataframe["color_capa"] = st.session_state.dataframe["tratamiento_n1_name"].map(st.session_state.tratamiento_color_mapa)
-dataframe_filtrado = st.session_state.dataframe[(st.session_state.dataframe["mes"] == 12)]
 
-maximum = dataframe_filtrado["cantidad_toneladas"].max()
-minimum = dataframe_filtrado["cantidad_toneladas"].min()
+maximum = st.session_state.dataframe["cantidad_toneladas"].max()
+minimum = st.session_state.dataframe["cantidad_toneladas"].min()
 
 def color_rows_by_score(row):
     val = row["cantidad_toneladas"]
@@ -79,68 +74,81 @@ def color_rows_by_score(row):
 
 
 # --------- Filtros --------- 
- 
+
+
+
 with st.sidebar:
-    st.header("Filtros de Mapa")
-    desecho_seleccionado = st.selectbox("Tipo de desecho", 
-                                     ["Todo tipo de desecho"] + st.session_state.tratamientos_unicos.tolist())
-    region_seleccionada = st.selectbox("Región", 
-                                       ["Todas las regiones"] + REGIONES)
+    
+    st.header("Filtro serie")
+    series_region_seleccionada = st.selectbox("Region",
+                                      ["Todas las regiones"] + REGIONES, key="serie_region")
+    series_comuna_seleccionada = st.selectbox("Comuna",
+                                       ["Todas las comunas"] + COMUNAS, key="serie_comuna")
+    series_desecho_seleccionado = st.selectbox("Desecho",
+                                        ["Acumulación total", "Eliminación", "Valorización", "Recepción y Almacenamiento"], key="serie_desecho")
 
-if region_seleccionada != "Todas las regiones":
-        dataframe_filtrado = dataframe_filtrado[dataframe_filtrado["region"] == region_seleccionada]
-if desecho_seleccionado != "Todo tipo de desecho":
-        dataframe_filtrado = dataframe_filtrado[st.session_state.dataframe["tratamiento_n1_name"] == desecho_seleccionado]
+    st.header("Filtro barra")
+    barra_region_seleccionada = st.selectbox("Region",
+                                      ["Todas las regiones"] + REGIONES, key="barra_region")
+    barra_desecho_seleccionado = st.selectbox("Desecho",
+                                        ["Acumulación total", "Eliminación", "Valorización", "Recepción y Almacenamiento"], key="barra_desecho")
+    barra_mes_seleccionado = st.selectbox("Mes", [i for i in range(1,13)], key="barra_mes" )
 
+
+series_data = st.session_state.dataframe
+barras_data = st.session_state.dataframe
+if series_region_seleccionada != "Todas las regiones":
+    series_data = st.session_state.dataframe[st.session_state.dataframe["region"] == series_region_seleccionada]
+
+if series_comuna_seleccionada != "Todas las comunas":
+    series_data = st.session_state.dataframe[st.session_state.dataframe["comuna"] == series_comuna_seleccionada]
+
+if series_desecho_seleccionado != "Acumulación total":
+    series_data = st.session_state.dataframe[st.session_state.dataframe["tratamiento_n1_name"] == series_desecho_seleccionado].groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
+                                                                                                                                                                  "longitud":"first",
+                                                                                                                                                                  "latitud":"first",
+                                                                                                                                                                  "tratamiento_n1_name":"first",
+                                                                                                                                                                  "mes":"first"}).reset_index()
+
+if barra_region_seleccionada != "Todas las regiones":
+    barra_data = st.session_state.dataframe[st.session_state.dataframe["region"] == barra_region_seleccionada]
+
+if barra_desecho_seleccionado != "Acumulación total":
+    barra_data = st.session_state.dataframe[st.session_state.dataframe["tratamiento_n1_name"] == barra_desecho_seleccionado].groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
+             "longitud":"first",
+             "latitud":"first",
+                                                                                                                                                                "tratamiento_n1_name":lambda x:None,
+                                                                                                                                                                "mes":lambda x:None,
+                }).reset_index()
+
+barra_data = st.session_state.dataframe[st.session_state.dataframe["mes"] == barra_mes_seleccionado]
 
 # --------- Filtros ---------  
 
 
 # --------- Mapa ---------  
 
-view_state = pdk.ViewState(
-                latitude=-33.4489,
-                longitude=-70.6693,
-                zoom=11,
-                pitch=30)
+serie_tiempo = px.line(series_data, x = "mes", y = "cantidad_toneladas", color = "tratamiento_n1_name")
 
-layer = pdk.Layer(
-        "ScatterplotLayer",
-        data = dataframe_filtrado,
-        get_position = ["longitud","latitud"],
-        get_radius = "cantidad_toneladas*0.1",
-        get_fill_color = "color_capa",
-        pickable = True,
-        auto_highlight = True
-        )
-r = pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            "text":"Comuna: {comuna}\nTratamiento: {tratamiento_n1_name}\nCantidad(Tm): {cantidad_toneladas}"},
-        )
 
+
+
+barras = px.bar(barras_data, x = "comuna", y = "cantidad_toneladas")
+
+
+
+# --------- Layout ---------  
 maincol1, maincol2 = st.columns([3,1])
 
 with maincol1:
-    st.pydeck_chart(r,width="stretch")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric(label="Total Reciclado", value="1,500 Ton", delta="+5%", border = True)
-    with col2:
-        st.metric(label="Familias Activas", value="12,000", delta="800", border = True)
-    with col3:
-        st.metric(label="Tasa de Captura", value="65%", delta="2%", border = True)
-    with col4:
-        st.metric(label="Meta Alcanzada", value="85%", delta="-1%", border = True)
+    st.plotly_chart(serie_tiempo)
+    st.plotly_chart(barras)
 
 with maincol2:
-    tonelaje = dataframe_filtrado["cantidad_toneladas"].to_frame().style.apply(color_rows_by_score, axis = 1)
-    st.dataframe(tonelaje, height = "stretch", hide_index=True,
-                 column_config = {
-                     "cantidad_toneladas":st.column_config.NumberColumn("Desechos Recolectados", format="%f Tn")
-                     }
-                 )
+    st.metric(label="Total Reciclado", value="1,500 Ton", delta="+5%", border = True)
+    st.metric(label="Familias Activas", value="12,000", delta="800", border = True)
+    st.metric(label="Tasa de Captura", value="65%", delta="2%", border = True)
+    st.metric(label="Meta Alcanzada", value="85%", delta="-1%", border = True)
 # --------- Mapa ---------  
 
 #print(df.info())
