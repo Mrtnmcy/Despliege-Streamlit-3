@@ -88,40 +88,40 @@ with st.sidebar:
                                         ["Acumulación total", "Eliminación", "Valorización", "Recepción y Almacenamiento"], key="serie_desecho")
 
     st.header("Filtro barra")
-    barra_region_seleccionada = st.selectbox("Region",
+    barra_region_seleccionada = st.selectbox("Barra Region",
                                       ["Todas las regiones"] + REGIONES, key="barra_region")
-    barra_desecho_seleccionado = st.selectbox("Desecho",
+    barra_desecho_seleccionado = st.selectbox("Barra Desecho",
                                         ["Acumulación total", "Eliminación", "Valorización", "Recepción y Almacenamiento"], key="barra_desecho")
-    barra_mes_seleccionado = st.selectbox("Mes", [i for i in range(1,13)], key="barra_mes" )
+    barra_mes_seleccionado = st.selectbox("Barra Mes", [i for i in range(1,13)], key="barra_mes" )
 
 
-series_data = st.session_state.dataframe
-barras_data = st.session_state.dataframe
+series_data = st.session_state.dataframe.copy()
+barra_data = st.session_state.dataframe.copy()
+barra_data = barra_data[barra_data["mes"] == barra_mes_seleccionado]
 if series_region_seleccionada != "Todas las regiones":
-    series_data = st.session_state.dataframe[st.session_state.dataframe["region"] == series_region_seleccionada]
+    series_data = series_data[series_data["region"] == series_region_seleccionada]
 
 if series_comuna_seleccionada != "Todas las comunas":
-    series_data = st.session_state.dataframe[st.session_state.dataframe["comuna"] == series_comuna_seleccionada]
+    series_data = series_data[series_data["comuna"] == series_comuna_seleccionada]
 
 if series_desecho_seleccionado != "Acumulación total":
-    series_data = st.session_state.dataframe[st.session_state.dataframe["tratamiento_n1_name"] == series_desecho_seleccionado].groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
+    series_data = series_data[series_data["tratamiento_n1_name"] == series_desecho_seleccionado]
+    series_data = series_data.groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
                                                                                                                                                                   "longitud":"first",
                                                                                                                                                                   "latitud":"first",
                                                                                                                                                                   "tratamiento_n1_name":"first",
                                                                                                                                                                   "mes":"first"}).reset_index()
 
 if barra_region_seleccionada != "Todas las regiones":
-    barra_data = st.session_state.dataframe[st.session_state.dataframe["region"] == barra_region_seleccionada]
+    barra_data = barra_data[barra_data["region"] == barra_region_seleccionada]
 
 if barra_desecho_seleccionado != "Acumulación total":
-    barra_data = st.session_state.dataframe[st.session_state.dataframe["tratamiento_n1_name"] == barra_desecho_seleccionado].groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
-             "longitud":"first",
-             "latitud":"first",
+    barra_data = barra_data[barra_data["tratamiento_n1_name"] == barra_desecho_seleccionado]
+    barra_data = barra_data.groupby(["region", "comuna"]).agg({"cantidad_toneladas":"sum",
+                                                                                                                                                                "longitud":"first",
+                                                                                                                                                                "latitud":"first",
                                                                                                                                                                 "tratamiento_n1_name":lambda x:None,
-                                                                                                                                                                "mes":lambda x:None,
-                }).reset_index()
-
-barra_data = st.session_state.dataframe[st.session_state.dataframe["mes"] == barra_mes_seleccionado]
+                                                                                                                                                                "mes":lambda x:None}).reset_index()
 
 # --------- Filtros ---------  
 
@@ -129,11 +129,7 @@ barra_data = st.session_state.dataframe[st.session_state.dataframe["mes"] == bar
 # --------- Mapa ---------  
 
 serie_tiempo = px.line(series_data, x = "mes", y = "cantidad_toneladas", color = "tratamiento_n1_name")
-
-
-
-
-barras = px.bar(barras_data, x = "comuna", y = "cantidad_toneladas")
+barras = px.bar(barra_data, x = "comuna", y = "cantidad_toneladas")
 
 
 
